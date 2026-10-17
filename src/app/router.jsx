@@ -9,6 +9,7 @@ import AnalysisPage from '../pages/AnalysisPage.jsx'
 import ProfileReviewPage from '../pages/ProfileReviewPage.jsx'
 import RolePage from '../pages/RolePage.jsx'
 import EnvironmentPage from '../pages/EnvironmentPage.jsx'
+import RecommendationPage from '../pages/RecommendationPage.jsx'
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
           { path: 'projects/:demoId/review', element: <ProfileReviewPage /> },
           { path: 'projects/:demoId/role', element: <RolePage /> },
           { path: 'projects/:demoId/environment', element: <EnvironmentPage /> },
+          { path: 'projects/:demoId/recommendation', element: <RecommendationPage /> },
         ],
       },
       { path: '*', element: <Navigate to="/" replace /> },

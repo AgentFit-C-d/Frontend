@@ -7,12 +7,13 @@ import { createServer } from 'vite'
 import { createDemoProfile } from '../src/features/profile/profileModel.js'
 import { demoReducer, initialDemoState } from '../src/features/projects/projectModel.js'
 
-let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, WizardProgress, DemoContext
+let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, RecommendationScreen, WizardProgress, DemoContext
 before(async () => {
   server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
   ;({ AnalysisScreen } = await server.ssrLoadModule('/src/pages/AnalysisPage.jsx'))
   ;({ ProfileEditor } = await server.ssrLoadModule('/src/pages/ProfileReviewPage.jsx'))
   ;({ default: WizardProgress } = await server.ssrLoadModule('/src/features/projects/WizardProgress.jsx'))
+  ;({ RecommendationScreen } = await server.ssrLoadModule('/src/pages/RecommendationPage.jsx'))
   ;({ EnvironmentEditor } = await server.ssrLoadModule('/src/pages/EnvironmentPage.jsx'))
   ;({ RoleEditor } = await server.ssrLoadModule('/src/pages/RolePage.jsx'))
   ;({ DemoContext } = await server.ssrLoadModule('/src/features/projects/DemoContext.js'))
@@ -114,4 +115,24 @@ test('프로젝트 유형·도메인 배지는 직접 편집과 서버 문서 �
   assert.match(html, /프로젝트 유형.*?사용자 입력/s)
   assert.match(html, /도메인.*?문서에서 확인/s)
   assert.doesNotMatch(html, />미확인으로 설정</)
+})
+
+
+test('추천 기본 상태·명시적 시안·서비스 오류를 분리하고 08단계로 이동하지 않는다', async () => {
+  const { createRecommendationPreview } = await import('../src/features/recommendation/recommendationModel.js')
+  const preview = createRecommendationPreview()
+  const props = { mode: 'demo', preview, environmentPath: '/demo/projects/a/environment' }
+  const initial = render(h(RecommendationScreen, props))
+  assert.match(initial, /추천 미실행/)
+  assert.equal((initial.match(/disabled=""/g) || []).length, 9)
+  assert.match(initial, /08\/10/)
+  assert.match(initial, /href="\/demo\/projects\/a\/environment"/)
+  assert.doesNotMatch(initial, /href="[^"]*selection|Codex|Claude/)
+  const sample = render(h(RecommendationScreen, { ...props, preview: { ...preview, visible: true, status: 'RECOMMENDED' } }))
+  assert.match(sample, /도구 추천 · 시연 미리보기/)
+  assert.match(sample, /검증된 추천 도구는 아직 표시할 수 없습니다/)
+  assert.doesNotMatch(sample, /disabled=""/)
+  const service = render(h(RecommendationScreen, { ...props, mode: 'service' }))
+  assert.match(service, /추천 서비스를 이용할 수 없어요/)
+  assert.doesNotMatch(service, /시연|fixture|미리보기|문서 참조|<select/)
 })

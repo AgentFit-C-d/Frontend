@@ -95,3 +95,30 @@ Analysis의 시연 진입·안내와 Review의 예시 불러오기는 demo 표�
 Role·Environment는 실제 서비스 기능 자체를 미연동 안내로 차단한다.
 서비스/시연 문구·데이터 보호는 정적 렌더링 및 모델 테스트이며 실제 인증·API E2E 검증은 아니다.
 실제 서비스 라우트, OAuth 세션/소유권, API 응답·저장·상태 전환은 연동 후 구현·검증해야 한다.
+
+## Capability 추천 07/10 (미실행 + 명시적 시연 미리보기)
+
+- HTML·DOCX의 Capability 9개와 필요성 REQUIRED/OPTIONAL/UNDETERMINED,
+  정상 추천 표현 4종(RECOMMENDED/NO_ADDITIONS_NEEDED/NEEDS_INFORMATION/NO_COMPATIBLE_TOOLS)을 재현한다.
+  PRD는 역할명 하나로 필수 능력을 확정하지 않고 네 결과와 검증된 이유·호환 조건을 구분하도록 요구한다.
+- 기본 실제 결과 뷰 모델은 NOT_RUN, capabilities:null, tools:null이다. 이는 서버 DTO가 아니다.
+  추천 미실행, 응답 데이터 null, 확인된 빈 목록 [], 실제 값 배열을 동일하게 취급하지 않는다.
+  오류/이용 불가도 정상 추천 결과로 대체하지 않는다.
+- `recommendationPreviews[id]`의 source는 demo-ui이며 별도 미리보기 조작값만 보관한다.
+  사용자가 명시적으로 열기 전에는 상태 버튼이 숨겨지고 필요성 select는 비활성이다.
+  고정 예시는 디자이너 항목·상태 문구뿐이며 추천 도구 fixture·점수·규칙·자동 분석은 없다.
+  미리보기 선택을 실제 결과 저장소에 쓰지 않는다. 닫기·재진입은 시연 선택을 보존한다.
+- 유효 확인된 Profile·Role·Environment만 demo 화면 이동을 허용한다.
+  수정으로 Environment 확인이 해제되면 재확인이 필요하다. 이전 단계/목록 이동 중 입력은 유지한다.
+  08단계는 미구현이고 버튼은 결과 미존재와 미구현 사유만 안내한다.
+- service 표시는 인증·추천 API 미연동 오류로 차단하고 시안 항목·예시를 표시하지 않는다.
+  서비스 라우트·실제 API 연결은 없다. OAuth 성공은 추천 실행/분석 완료의 근거가 아니다.
+- 현재 프론트 표현 가능: 9개 Capability 표시, 필요성 시안 선택, 네 결과의 문구 미리보기,
+  미실행/결과 없음/실패/이용 불가 안내. 실제 도구 목록은 어떤 상태에서도 생성하지 않는다.
+- 공유 phase1 OpenAPI에는 추천/Capability 경로·스키마가 없다. 백엔드 합의 필요:
+  시작·조회 방식, 결과 버전/입력 snapshot 식별자, 상태·오류 코드, Capability 분류와 출처,
+  필요성·근거·불확실성, Catalog 도구 ID/버전·호환 조건·권한·위험도, 결과 null/[] 의미,
+  재분석 시 이전 결과 무효화 및 동시 수정 정책.
+- Codex/Claude Code MVP 지원 대상은 미확정이다. 07단계는 특정 Client 필드를 읽거나
+  호환성을 판단하지 않는다. 06단계의 Codex 표시는 디자인 참고 표시이며 실제 지원 확정이 아니다.
+  지원 정책과 Client별 서버 필드는 별도 합의 후 어댑터에 연결해야 한다.

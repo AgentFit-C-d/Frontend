@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Navigate, useParams } from 'react-router'
+import { Navigate, useNavigate, useParams } from 'react-router'
 import { useDemoProjects } from '../features/projects/DemoContext.js'
 import { getVisibleProjects } from '../features/projects/projectModel.js'
 import { authOptions, canEnterDemoEnvironment, configurationOptions, emptyEnvironmentEntry, osOptions, validateEnvironment } from '../features/environment/environmentModel.js'
@@ -10,12 +10,13 @@ import styles from './EnvironmentPage.module.css'
 
 export default function EnvironmentPage() {
   const { demoId } = useParams()
+  const navigate = useNavigate()
   const { state, dispatch } = useDemoProjects()
   const project = getVisibleProjects(state).find(item => item.id === demoId)
   if (!project) return <Card padded><h1>프로젝트를 찾을 수 없어요</h1><p>현재 시연 세션의 목록에서 프로젝트를 다시 선택해주세요.</p><Button to="/demo/projects">내 프로젝트로</Button></Card>
   const path = `/demo/projects/${encodeURIComponent(project.id)}`
   if (!canEnterDemoEnvironment(state.demoProfiles[project.id], state.roleDrafts[project.id])) return <Navigate to={`${path}/role`} replace />
-  return <EnvironmentEditor key={project.id} mode="demo" entry={state.environmentDrafts[project.id] || emptyEnvironmentEntry} rolePath={`${path}/role`} onEdit={action => dispatch({ ...action, type: 'environment-edit', id: project.id })} onConfirm={() => dispatch({ type: 'environment-confirm', id: project.id })} />
+  return <EnvironmentEditor key={project.id} mode="demo" entry={state.environmentDrafts[project.id] || emptyEnvironmentEntry} rolePath={`${path}/role`} onEdit={action => dispatch({ ...action, type: 'environment-edit', id: project.id })} onConfirm={() => { dispatch({ type: 'environment-confirm', id: project.id }); navigate(`${path}/recommendation`) }} />
 }
 
 export function EnvironmentEditor({ mode, entry, rolePath, onEdit, onConfirm }) {
@@ -64,7 +65,7 @@ export function EnvironmentEditor({ mode, entry, rolePath, onEdit, onConfirm }) 
       return
     }
     onConfirm()
-    setNotice('입력 조건을 확인했어요. Capability 추천(07/10)은 아직 구현되지 않아 이동하지 않습니다. 서버 저장·환경 검사·추천 결과 생성은 수행하지 않았고 입력값은 시연 메모리에만 유지됩니다.')
+
   }
   return <>
     <PageHeader eyebrow="06 / 10 · ENVIRONMENT PROFILE" title="개발환경 입력" description="PC 환경을 자동 검사하지 않습니다. 알고 있는 정보를 직접 입력해주세요." />

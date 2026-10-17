@@ -1,8 +1,9 @@
+import { canEnterDemoRecommendation, createRecommendationPreview, editRecommendationPreview } from '../recommendation/recommendationModel.js'
 import { canEnterDemoEnvironment, editEnvironment, emptyEnvironmentEntry } from '../environment/environmentModel.js'
 import { canEnterDemoRole, editRole, emptyRoleEntry } from '../role/roleModel.js'
 import { createDemoProfile, editDemoProfile } from '../profile/profileModel.js'
 // This store contains demo data only. Server data belongs in a separate API-backed store.
-export const initialDemoState = { active: false, projects: [], draftName: '', examplesVisible: false, selectedProjectId: null, planningDrafts: {}, demoProfiles: {}, roleDrafts: {}, environmentDrafts: {} }
+export const initialDemoState = { active: false, projects: [], draftName: '', examplesVisible: false, selectedProjectId: null, planningDrafts: {}, demoProfiles: {}, roleDrafts: {}, environmentDrafts: {}, recommendationPreviews: {} }
 
 const exampleProjects = [
   { id: 'demo-example-workout', name: '운동 기록 웹 서비스', source: 'demo' },
@@ -32,6 +33,12 @@ export function validateProjectName(value) {
 
 export function demoReducer(state, action) {
   switch (action.type) {
+    case 'recommendation-preview': {
+      if (!state.active || !getVisibleProjects(state).some(project => project.id === action.id) || !canEnterDemoRecommendation(state.demoProfiles[action.id], state.roleDrafts[action.id], state.environmentDrafts[action.id])) return state
+      const previous = state.recommendationPreviews[action.id] || createRecommendationPreview()
+      const entry = editRecommendationPreview(previous, action)
+      return entry === previous ? state : { ...state, recommendationPreviews: { ...state.recommendationPreviews, [action.id]: entry } }
+    }
     case 'environment-edit':
     case 'environment-confirm': {
       if (!state.active || !getVisibleProjects(state).some(project => project.id === action.id) || !canEnterDemoEnvironment(state.demoProfiles[action.id], state.roleDrafts[action.id])) return state
