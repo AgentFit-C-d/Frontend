@@ -1,0 +1,46 @@
+# Analysis / Profile 연동 준비 메모
+
+기준: 팀 공유 `AgentFit-team-handoff-2026-09-08-v2/Docs/api/openapi.phase1.json`,
+`Docs/api/01-project-analysis.md`. 아래 주소는 기존 계약을 요약한 것이며 이번 작업에서 호출하거나 새로 구현하지 않았다.
+
+| 기능 | 기존 계약 / 프론트 연결 지점 |
+| --- | --- |
+| 인증 세션 | GET `/api/auth/get-session`: `{user:{id,name},session:{expiresAt}}` 또는 null. 토큰을 프론트에 노출하지 않는다. OAuth 성공은 분석 상태 전환 신호가 아니다. |
+| 분석 시작 | POST `/api/projects/{projectId}/analysis`: raw PDF bytes / Markdown / 직접 텍스트. MIME application/pdf, text/markdown, text/plain. 10 MiB·100페이지·100,000 코드포인트 제한. 클라이언트 파일 검사는 페이지/내용 검증을 대체하지 않는다. |
+| 분석 응답 | 성공 시 `{draft,attempt}`. Profile은 data/sources/evidence/unknownFields/version, Attempt는 id/status/errorCode/시간·문서 요약 포함. 실패해도 이전 유효 Profile을 삭제하지 않는다. |
+| 상태·Profile 조회 | GET `/api/projects/{projectId}`: project/confirmed/draft/latestAttempt 키는 항상 존재하며 미존재 값은 null. 별도 상태 조회 엔드포인트를 만들지 않는다. |
+| Profile 확인 저장 | PATCH `/api/projects/{projectId}/profile`: expectedVersion + data 10개 필드 전체. draftId/draftVersion은 함께 전송하거나 함께 생략. 응답 `{project,confirmed}`를 기준으로 상태 갱신. sources/evidence 등 서버 계산 필드는 제출하지 않는다. |
+
+## 상태 및 표시 정책
+
+- UI 상태는 unavailable / queued / processing / completed / failed로 구분한다.
+- 계약의 PROCESSING / SUCCEEDED / FAILED를 각각 진행 / 완료 / 실패에 대응시킨다.
+- 현재 계약은 별도 작업 큐나 취소 endpoint를 정의하지 않는다. queued는 UI 표현만 준비했으며 실제 대기 신호·조회 주기·재시도·취소 UX는 팀과 확인한다.
+- `getAnalysisPresentation(status, mode)`와 AnalysisScreen에 명시적으로 상태를 전달한다.
+  현재 `/demo` 라우트는 항상 demo + unavailable이며 타이머·요청·가짜 결과가 없다.
+- `getProfilePresentation(mode)`는 서비스와 시연 문구를 분리한다.
+  실제 서비스 연결 시 별도 인증/서버 데이터 컨테이너를 연결하고 demoProfiles를 재사용하지 않는다.
+  실제 이용 불가 상태에서도 서비스 오류 안내를 표시한다.
+
+## 데이터 및 미확정 사항
+
+- Profile 문자열: null 또는 공백뿐이지 않은 1~200 코드포인트. 프로젝트명은 사용자 확인 시 필수.
+  편집 중 빈 문자열은 그대로 유지하고 확인 시 오류로 처리한다. 미확인 전환은 명시적 버튼으로만 수행한다.
+- 목록: null(미확인), [](확인된 없음), 값 배열(최대 30개·항목당 200 코드포인트)을 구분한다.
+- `demoProfiles[id]`의 source는 demo-manual 또는 demo-fixture. draft와 마지막 유효 profile을 분리한다.
+  기존 entry는 재진입 시 초기화하지 않고, 명시적인 예시 교체만 확인 후 허용한다.
+- 프로젝트 생성 이름과 Profile.project_name 동기화는 확인한 계약에 명시적으로 규정되어 있지 않다.
+  PATCH 응답에 project가 포함되지만 이름 갱신 여부는 별도 합의가 필요하다. 현 시연은 자동 동기화하지 않는다.
+- 기존 생성 UI는 이름 200 코드포인트지만 공유 API 문서의 Project.name은 100이다.
+  이번 범위에서는 변경하지 않았으며 실제 프로젝트 생성 연동 전 팀 확인이 필요하다.
+- 실제 OAuth 공급자 연결·세션 만료, 소유권/Origin 검증, 버전 충돌(409), 분석 오류/중단 복구,
+  네트워크 재시도 및 중복 시작 방지는 미구현이다. 서비스 모드 라우트도 아직 제공하지 않는다.
+
+## 커밋 전 모드 검증
+
+- 서비스/시연 Analysis·Profile 컴포넌트를 정적 렌더링하여 시연 버튼·문구 노출을 검사한다.
+- 서비스 표시 모드에 demo-manual/demo-fixture를 주입하면 편집 화면 대신 데이터 오류 안내를 표시한다.
+- 현재 운영 가능한 서비스 라우트는 없다. 정적 서비스 렌더링은 인증·API 연결 검증이 아니다.
+- 상태 문구 5종, 진행 중 원본 제목, 신규 Profile의 예시 미주입, 명시적 예시 교체,
+  Profile 확인과 분석 완료의 독립성은 자동 테스트로 확인한다.
+- 실제 세션 만료·소유권·AI 응답/오류·서버 버전 충돌 및 상태 전환은 백엔드 연동 후 검증한다.

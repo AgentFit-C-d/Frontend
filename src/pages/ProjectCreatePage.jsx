@@ -30,7 +30,7 @@ export default function ProjectCreatePage() {
     // This opaque ID exists only in the demo session, not in the server API contract.
     const id = `demo-${crypto.randomUUID()}`
     dispatch({ type: 'create', id, name })
-    navigate('/demo/projects')
+    navigate(`/demo/projects/${id}`, { replace: true })
   }
   return <>
     <PageHeader eyebrow="01 / 10 · PROJECT" title="새 프로젝트 만들기" description="먼저 프로젝트 이름을 입력해주세요." />
