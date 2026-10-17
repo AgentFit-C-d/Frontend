@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
-import { Navigate, useParams } from 'react-router'
+import { Navigate, useNavigate, useParams } from 'react-router'
 import { useDemoProjects } from '../features/projects/DemoContext.js'
 import { getVisibleProjects } from '../features/projects/projectModel.js'
-import { scalarFields, listFields, validateProfile } from '../features/profile/profileModel.js'
+import { scalarFields, listFields, validateProfile, getTechnicalFieldLabel } from '../features/profile/profileModel.js'
 import WizardProgress from '../features/projects/WizardProgress.jsx'
 import PageHeader from '../components/layout/PageHeader.jsx'
 import { Badge, Button, Card, FormField } from '../components/ui/UI.jsx'
@@ -21,6 +21,7 @@ export default function ProfileReviewPage() {
 
 export function ProfileEditor({ project, entry, mode }) {
   const { dispatch } = useDemoProjects()
+  const navigate = useNavigate()
   const [submitted, setSubmitted] = useState(false)
   const [confirmExample, setConfirmExample] = useState(false)
   const copy = getProfilePresentation(mode)
@@ -38,16 +39,18 @@ export function ProfileEditor({ project, entry, mode }) {
       form.current?.querySelector(`#profile-${invalid}`)?.focus()
       return
     }
+    if (mode !== 'demo') return
     edit('confirm')
+    navigate(`${path}/role`)
   }
   if (mode !== 'demo' && ['demo-fixture', 'demo-manual'].includes(entry.source)) return <Card padded><h1>프로젝트 정보를 불러올 수 없어요</h1><p>서버에서 확인한 프로젝트 정보가 필요합니다.</p></Card>
 
   function scalar(key) {
     const label = scalarFields.find(([field]) => field === key)[1]
     const value = entry.draft[key]
-    return <FormField key={key} id={`profile-${key}`} label={<>{label}{key !== 'project_name' && <span className={styles.optional}>선택</span>} <Badge>{value === null ? '확인되지 않음' : key === 'project_name' && entry.nameOrigin === 'project' ? '프로젝트 생성 시 입력' : copy.valueLabel}</Badge></>} required={key === 'project_name'} error={errors[key]}>
+    return <FormField key={key} id={`profile-${key}`} label={<>{label}{key !== 'project_name' && <span className={styles.optional}>선택</span>} <Badge>{['database', 'deployment'].includes(key) ? getTechnicalFieldLabel(entry, key) : value === null ? '확인되지 않음' : key === 'project_name' && entry.nameOrigin === 'project' ? '프로젝트 생성 시 입력' : copy.valueLabel}</Badge></>} required={key === 'project_name'} error={errors[key]}>
       <input id={`profile-${key}`} className={styles.input} value={value ?? ''} required={key === 'project_name'} placeholder="확인되지 않음" aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `profile-${key}-error` : undefined} onChange={event => edit('scalar', key, { value: event.target.value })} />
-      {key !== 'project_name' && <Button onClick={() => edit('unknown', key)}>미확인으로 설정</Button>}
+      {!['project_name', 'database', 'deployment'].includes(key) && <Button onClick={() => edit('unknown', key)}>미확인으로 설정</Button>}
     </FormField>
   }
   function list(key) {
@@ -75,7 +78,7 @@ export function ProfileEditor({ project, entry, mode }) {
   }
   return <>
     <PageHeader eyebrow="04 / 10 · PROJECT PROFILE" title={copy.title} description={copy.description} />
-    <WizardProgress currentStep={4} incompleteSteps={[3]} />
+    <WizardProgress currentStep={4} incompleteSteps={mode === 'demo' ? [] : [3]} navigationOnly={mode === 'demo'} />
     <div className={styles.alert}><Badge>{mode === 'demo' ? '시연 Profile' : 'Project Profile'} · {entry.confirmed ? '확인 완료' : '확인 전'}</Badge><span>프로젝트 목록 이름: <strong>{project.name}</strong>. 아래 Profile 프로젝트명은 별도 편집값이며 목록 이름과 자동 동기화하지 않습니다. 프로젝트명만 필수입니다.{mode === 'demo' && ' 변경 내용은 이 시연 세션의 메모리에만 유지되며 AI 분석 결과가 아닙니다.'}</span></div>
     {mode === 'demo' && <div className={styles.examples}>
       <Button variant="soft" onClick={() => setConfirmExample(true)}>예시 데이터 불러오기</Button>
@@ -88,8 +91,8 @@ export function ProfileEditor({ project, entry, mode }) {
         <Card padded><h3>기술 구성</h3><div className={styles.divider} />{scalar('database')}{scalar('deployment')}{list('frontend')}{list('backend')}{list('ai')}</Card>
         <Card padded><h3>외부 연동</h3><div className={styles.divider} />{list('external_integrations')}</Card>
       </div>
-      <p className={styles.notice} role="status">{mode === 'demo' ? (entry.confirmed ? '시연 Profile의 유효 입력을 메모리에 확인했어요. 서버 저장·실제 분석 완료가 아니며, 내 역할 입력(05/10)은 아직 구현되지 않았습니다.' : '시연 Profile을 확인해도 실제 AI 분석 상태는 변경되지 않습니다. 내 역할 입력(05/10) 화면은 아직 제공하지 않습니다.') : '입력 내용을 확인해주세요.'}</p>
-      <div className={styles.actions}><Button to={`${path}/analysis`}>← 이전 단계</Button><Button type="submit" variant="primary" large>{copy.confirmLabel}</Button></div>
+      <p className={styles.notice} role="status">{mode === 'demo' ? (entry.confirmed ? '시연 Profile의 유효 입력을 메모리에 확인했어요. 서버 저장·실제 분석 완료가 아니며, 다음은 내 역할 입력 단계입니다.' : '시연 Profile을 확인해도 실제 AI 분석 상태는 변경되지 않습니다. 유효 입력을 확인하면 내 역할 입력 단계로 이동합니다.') : '입력 내용을 확인해주세요.'}</p>
+      <div className={styles.actions}><Button to={`${path}/analysis`}>← 이전 단계</Button><Button type="submit" variant="primary" large>{mode === 'demo' ? '전체 Project Profile 확인하고 다음으로 (시연) →' : copy.confirmLabel}</Button></div>
     </form>
   </>
 }

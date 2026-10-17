@@ -102,3 +102,28 @@ test('신규 Profile은 생성 이름만 가져오며 예시는 확인된 명시
   assert.equal(state.demoProfiles.a.source, 'demo-fixture')
   assert.equal(state.demoProfiles.a.draft.project_name, '예시 팀 일정 서비스')
 })
+
+test('Database·Deployment 삭제·공백은 null이며 직접 편집 출처와 마지막 유효 값을 보존한다', async () => {
+  const { getTechnicalFieldLabel } = await import('../src/features/profile/profileModel.js')
+  let state = session()
+  const other = structuredClone(state.demoProfiles.a.draft.features)
+  for (const key of ['database', 'deployment']) {
+    assert.equal(getTechnicalFieldLabel(state.demoProfiles.a, key), '확인되지 않음')
+    state = edit(state, { edit: 'scalar', key, value: 'PostgreSQL' })
+    assert.equal(getTechnicalFieldLabel(state.demoProfiles.a, key), '사용자 입력')
+    state = edit(state, { edit: 'confirm' })
+    state = edit(state, { edit: 'scalar', key, value: 'x'.repeat(201) })
+    state = edit(state, { edit: 'confirm' })
+    assert.equal(state.demoProfiles.a.profile[key], 'PostgreSQL')
+    state = edit(state, { edit: 'scalar', key, value: '   ' })
+    assert.equal(state.demoProfiles.a.draft[key], null)
+    assert.equal(getTechnicalFieldLabel(state.demoProfiles.a, key), '확인되지 않음')
+    state = edit(state, { edit: 'confirm' })
+    assert.equal(state.demoProfiles.a.profile[key], null)
+    state = edit(state, { edit: 'scalar', key, value: '' })
+    assert.equal(state.demoProfiles.a.draft[key], null)
+  }
+  assert.deepEqual(state.demoProfiles.a.draft.features, other)
+  const server = { ...state.demoProfiles.a, draft: { ...state.demoProfiles.a.draft, database: '서버 문서 값' }, editedFields: {}, sources: { database: 'DOCUMENT' } }
+  assert.equal(getTechnicalFieldLabel(server, 'database'), '문서에서 확인')
+})

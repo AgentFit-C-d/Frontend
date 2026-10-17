@@ -14,6 +14,7 @@ export function validateProfile(draft, modes) {
   for (const [key] of scalarFields) {
     const value = draft[key]
     if (key === 'project_name' && !value?.trim()) errors[key] = '프로젝트 이름을 입력해주세요.'
+    else if (['database', 'deployment'].includes(key) && typeof value === 'string' && !value.trim()) continue
     else if (value !== null && (typeof value !== 'string' || !value.trim() || Array.from(value).length > 200)) errors[key] = '1~200 코드포인트를 입력하거나 미확인으로 설정해주세요.'
   }
   for (const [key] of listFields) {
@@ -35,7 +36,7 @@ export function editDemoProfile(entry, action) {
   switch (action.edit) {
     case 'scalar':
       if (!scalar || typeof action.value !== 'string') return entry
-      draft[key] = action.value
+      draft[key] = ['database', 'deployment'].includes(key) && !action.value.trim() ? null : action.value
       break
     case 'unknown':
       if (!scalar || key === 'project_name') return entry
@@ -61,8 +62,18 @@ export function editDemoProfile(entry, action) {
       break
     case 'confirm':
       if (Object.keys(validateProfile(draft, modes)).length) return entry
-      return { ...entry, profile: copy(draft), confirmed: true }
+      return { ...entry, profile: { ...copy(draft), database: draft.database?.trim() ? draft.database : null, deployment: draft.deployment?.trim() ? draft.deployment : null }, confirmed: true }
     default: return entry
   }
-  return { ...entry, draft, modes, confirmed: false, nameOrigin: key === 'project_name' ? 'user' : entry.nameOrigin }
+  return { ...entry, draft, modes, confirmed: false, editedFields: action.edit === 'scalar' ? { ...entry.editedFields, [key]: true } : entry.editedFields, nameOrigin: key === 'project_name' ? 'user' : entry.nameOrigin }
+}
+
+
+export function getTechnicalFieldLabel(entry, key) {
+  const value = entry.draft[key]
+  if (value === null || !value?.trim()) return '확인되지 않음'
+  if (Array.from(value).length > 200) return '입력 확인 필요'
+  if (entry.editedFields?.[key] || entry.sources?.[key] === 'USER') return '사용자 입력'
+  if (entry.sources?.[key] === 'DOCUMENT') return '문서에서 확인'
+  return entry.source === 'demo-fixture' ? '예시 데이터' : '확인된 값'
 }

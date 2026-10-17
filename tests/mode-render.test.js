@@ -7,11 +7,13 @@ import { createServer } from 'vite'
 import { createDemoProfile } from '../src/features/profile/profileModel.js'
 import { demoReducer, initialDemoState } from '../src/features/projects/projectModel.js'
 
-let server, AnalysisScreen, ProfileEditor, DemoContext
+let server, AnalysisScreen, ProfileEditor, RoleEditor, WizardProgress, DemoContext
 before(async () => {
   server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
   ;({ AnalysisScreen } = await server.ssrLoadModule('/src/pages/AnalysisPage.jsx'))
   ;({ ProfileEditor } = await server.ssrLoadModule('/src/pages/ProfileReviewPage.jsx'))
+  ;({ default: WizardProgress } = await server.ssrLoadModule('/src/features/projects/WizardProgress.jsx'))
+  ;({ RoleEditor } = await server.ssrLoadModule('/src/pages/RolePage.jsx'))
   ;({ DemoContext } = await server.ssrLoadModule('/src/features/projects/DemoContext.js'))
 })
 after(async () => { await server?.close() })
@@ -52,4 +54,38 @@ test('시연 진입·프로필 확인은 분석 완료 상태를 만들지 않�
   assert.equal(Object.hasOwn(state, 'analysisStatus'), false)
   assert.equal(demoReducer(state, { type: 'oauth-success' }), state)
   assert.equal(demoReducer(state, { type: 'analysis-completed' }), state)
+})
+
+
+test('Role 시연 입력 UI는 demo에만 제공하고 서비스는 미연동 안내로 차단한다', () => {
+  const entry = { source: 'demo-user', draft: { role: '', responsibilitiesText: '', experience: '' } }
+  const demo = render(h(RoleEditor, { mode: 'demo', entry, reviewPath: '/demo/projects/a/review' }))
+  assert.match(demo, /내 역할과 담당 업무/)
+  assert.match(demo, /시연 모드/)
+  assert.match(demo, /다음: 개발환경 입력/)
+  assert.match(demo, /href="\/demo\/projects\/a\/review"/)
+  const service = render(h(RoleEditor, { mode: 'service', entry, reviewPath: '/projects/a/review' }))
+  assert.match(service, /인증된 세션과 역할 데이터 API 연결이 필요합니다/)
+  assert.doesNotMatch(service, /시연|fixture|<form|프론트엔드/)
+})
+
+
+test('시연 체크는 화면 흐름이며 실제 서비스의 03단계 제한을 해제하지 않는다', () => {
+  for (const currentStep of [4, 5]) {
+    const html = render(h(WizardProgress, { currentStep, navigationOnly: true }))
+    assert.match(html, /체크는 화면 방문을 의미합니다/)
+    assert.equal((html.match(/✓/g) || []).length, currentStep - 1)
+  }
+  const service = render(h(WizardProgress, { currentStep: 4, incompleteSteps: [3] }))
+  assert.equal((service.match(/✓/g) || []).length, 2)
+})
+
+test('기술 필드에는 미확인 설정 버튼 없이 자동 상태 배지를 표시한다', () => {
+  const entry = createDemoProfile('이름')
+  entry.draft.database = 'PostgreSQL'
+  entry.editedFields = { database: true }
+  const html = render(h(DemoContext.Provider, { value: { dispatch() {} } }, h(ProfileEditor, { mode: 'demo', project, entry })))
+  assert.match(html, /Database.*?사용자 입력/s)
+  assert.match(html, /Deployment.*?확인되지 않음/s)
+  assert.equal((html.match(/>미확인으로 설정</g) || []).length, 2)
 })

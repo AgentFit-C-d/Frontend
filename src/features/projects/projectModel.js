@@ -1,6 +1,7 @@
+import { canEnterDemoRole, editRole, emptyRoleEntry } from '../role/roleModel.js'
 import { createDemoProfile, editDemoProfile } from '../profile/profileModel.js'
 // This store contains demo data only. Server data belongs in a separate API-backed store.
-export const initialDemoState = { active: false, projects: [], draftName: '', examplesVisible: false, selectedProjectId: null, planningDrafts: {}, demoProfiles: {} }
+export const initialDemoState = { active: false, projects: [], draftName: '', examplesVisible: false, selectedProjectId: null, planningDrafts: {}, demoProfiles: {}, roleDrafts: {} }
 
 const exampleProjects = [
   { id: 'demo-example-workout', name: '운동 기록 웹 서비스', source: 'demo' },
@@ -30,6 +31,13 @@ export function validateProjectName(value) {
 
 export function demoReducer(state, action) {
   switch (action.type) {
+    case 'role-edit':
+    case 'role-confirm': {
+      if (!state.active || !getVisibleProjects(state).some(project => project.id === action.id) || !canEnterDemoRole(state.demoProfiles[action.id])) return state
+      const previous = state.roleDrafts[action.id] || emptyRoleEntry
+      const entry = editRole(previous, action)
+      return entry === previous ? state : { ...state, roleDrafts: { ...state.roleDrafts, [action.id]: entry } }
+    }
     case 'profile-load-example':
     case 'profile-preview':
     case 'profile-edit': {
