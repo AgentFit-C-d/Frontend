@@ -2,6 +2,7 @@ import { createDemoProfileFixture } from './demoProfileFixture.js'
 
 export const scalarFields = [['project_name', '프로젝트명'], ['project_type', '프로젝트 유형'], ['domain', '도메인'], ['database', 'Database'], ['deployment', 'Deployment']]
 export const listFields = [['features', '주요 기능'], ['frontend', 'Frontend'], ['backend', 'Backend'], ['ai', 'AI'], ['external_integrations', 'External Integrations']]
+export const automaticScalarFields = ['project_type', 'domain', 'database', 'deployment']
 const copy = value => structuredClone(value)
 
 export function createDemoProfile(projectName, example = false) {
@@ -14,7 +15,7 @@ export function validateProfile(draft, modes) {
   for (const [key] of scalarFields) {
     const value = draft[key]
     if (key === 'project_name' && !value?.trim()) errors[key] = '프로젝트 이름을 입력해주세요.'
-    else if (['database', 'deployment'].includes(key) && typeof value === 'string' && !value.trim()) continue
+    else if (automaticScalarFields.includes(key) && typeof value === 'string' && !value.trim()) continue
     else if (value !== null && (typeof value !== 'string' || !value.trim() || Array.from(value).length > 200)) errors[key] = '1~200 코드포인트를 입력하거나 미확인으로 설정해주세요.'
   }
   for (const [key] of listFields) {
@@ -36,7 +37,7 @@ export function editDemoProfile(entry, action) {
   switch (action.edit) {
     case 'scalar':
       if (!scalar || typeof action.value !== 'string') return entry
-      draft[key] = ['database', 'deployment'].includes(key) && !action.value.trim() ? null : action.value
+      draft[key] = automaticScalarFields.includes(key) && !action.value.trim() ? null : action.value
       break
     case 'unknown':
       if (!scalar || key === 'project_name') return entry
@@ -62,7 +63,7 @@ export function editDemoProfile(entry, action) {
       break
     case 'confirm':
       if (Object.keys(validateProfile(draft, modes)).length) return entry
-      return { ...entry, profile: { ...copy(draft), database: draft.database?.trim() ? draft.database : null, deployment: draft.deployment?.trim() ? draft.deployment : null }, confirmed: true }
+      return { ...entry, profile: { ...copy(draft), ...Object.fromEntries(automaticScalarFields.map(field => [field, draft[field]?.trim() ? draft[field] : null])) }, confirmed: true }
     default: return entry
   }
   return { ...entry, draft, modes, confirmed: false, editedFields: action.edit === 'scalar' ? { ...entry.editedFields, [key]: true } : entry.editedFields, nameOrigin: key === 'project_name' ? 'user' : entry.nameOrigin }

@@ -88,8 +88,8 @@ test('신규 Profile은 생성 이름만 가져오며 예시는 확인된 명시
   assert.ok(Object.entries(first.draft).every(([key, value]) => key === 'project_name' || value === null))
   assert.equal(demoReducer(state, { type: 'profile-load-example', id: 'a' }), state)
   state = edit(state, { edit: 'scalar', key: 'domain', value: '' })
-  assert.equal(state.demoProfiles.a.draft.domain, '')
-  assert.ok(validateProfile(state.demoProfiles.a.draft, state.demoProfiles.a.modes).domain)
+  assert.equal(state.demoProfiles.a.draft.domain, null)
+  assert.equal(validateProfile(state.demoProfiles.a.draft, state.demoProfiles.a.modes).domain, undefined)
   state = edit(state, { edit: 'confirm' })
   assert.equal(state.demoProfiles.a.profile.domain, null)
   state = edit(state, { edit: 'unknown', key: 'domain' })
@@ -103,11 +103,12 @@ test('신규 Profile은 생성 이름만 가져오며 예시는 확인된 명시
   assert.equal(state.demoProfiles.a.draft.project_name, '예시 팀 일정 서비스')
 })
 
-test('Database·Deployment 삭제·공백은 null이며 직접 편집 출처와 마지막 유효 값을 보존한다', async () => {
+test('선택형 단일 필드의 삭제·공백은 null이며 직접 편집 출처와 마지막 유효 값을 보존한다', async () => {
   const { getTechnicalFieldLabel } = await import('../src/features/profile/profileModel.js')
   let state = session()
   const other = structuredClone(state.demoProfiles.a.draft.features)
-  for (const key of ['database', 'deployment']) {
+  for (const key of ['project_type', 'domain', 'database', 'deployment']) {
+    state = edit(state, { edit: 'scalar', key, value: '' })
     assert.equal(getTechnicalFieldLabel(state.demoProfiles.a, key), '확인되지 않음')
     state = edit(state, { edit: 'scalar', key, value: 'PostgreSQL' })
     assert.equal(getTechnicalFieldLabel(state.demoProfiles.a, key), '사용자 입력')

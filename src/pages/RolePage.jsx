@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Navigate, useParams } from 'react-router'
+import { Navigate, useNavigate, useParams } from 'react-router'
 import { useDemoProjects } from '../features/projects/DemoContext.js'
 import { getVisibleProjects } from '../features/projects/projectModel.js'
 import { canEnterDemoRole, emptyRoleEntry, experienceOptions, roleOptions, validateRole } from '../features/role/roleModel.js'
@@ -10,12 +10,13 @@ import styles from './RolePage.module.css'
 
 export default function RolePage() {
   const { demoId } = useParams()
+  const navigate = useNavigate()
   const { state, dispatch } = useDemoProjects()
   const project = getVisibleProjects(state).find(item => item.id === demoId)
   if (!project) return <Card padded><h1>프로젝트를 찾을 수 없어요</h1><p>현재 시연 세션의 목록에서 프로젝트를 다시 선택해주세요.</p><Button to="/demo/projects">내 프로젝트로</Button></Card>
   const path = `/demo/projects/${encodeURIComponent(project.id)}`
   if (!canEnterDemoRole(state.demoProfiles[project.id])) return <Navigate to={`${path}/review`} replace />
-  return <RoleEditor key={project.id} mode="demo" entry={state.roleDrafts[project.id] || emptyRoleEntry} reviewPath={`${path}/review`} onEdit={(field, value) => dispatch({ type: 'role-edit', id: project.id, field, value })} onConfirm={() => dispatch({ type: 'role-confirm', id: project.id })} />
+  return <RoleEditor key={project.id} mode="demo" entry={state.roleDrafts[project.id] || emptyRoleEntry} reviewPath={`${path}/review`} onEdit={(field, value) => dispatch({ type: 'role-edit', id: project.id, field, value })} onConfirm={() => { dispatch({ type: 'role-confirm', id: project.id }); navigate(`${path}/environment`) }} />
 }
 
 export function RoleEditor({ mode, entry, reviewPath, onEdit, onConfirm }) {
@@ -32,7 +33,7 @@ export function RoleEditor({ mode, entry, reviewPath, onEdit, onConfirm }) {
     const invalid = Object.keys(validateRole(entry.draft))[0]
     if (invalid) { setNotice(''); form.current?.querySelector(`[data-field="${invalid}"]`)?.focus(); return }
     onConfirm()
-    setNotice('입력 조건을 확인했어요. 개발환경 입력(06/10)은 아직 구현되지 않아 이동하지 않습니다. 현재 값은 시연 메모리에만 유지되며 서버 저장이나 추천 결과 생성은 수행하지 않았습니다.')
+
   }
   return <>
     <PageHeader eyebrow="05 / 10 · DEVELOPER PROFILE" title="내 역할과 담당 업무" description="역할 하나와 이번 프로젝트에서 맡을 업무를 입력해주세요." />

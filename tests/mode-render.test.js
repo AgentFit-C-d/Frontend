@@ -7,12 +7,13 @@ import { createServer } from 'vite'
 import { createDemoProfile } from '../src/features/profile/profileModel.js'
 import { demoReducer, initialDemoState } from '../src/features/projects/projectModel.js'
 
-let server, AnalysisScreen, ProfileEditor, RoleEditor, WizardProgress, DemoContext
+let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, WizardProgress, DemoContext
 before(async () => {
   server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
   ;({ AnalysisScreen } = await server.ssrLoadModule('/src/pages/AnalysisPage.jsx'))
   ;({ ProfileEditor } = await server.ssrLoadModule('/src/pages/ProfileReviewPage.jsx'))
   ;({ default: WizardProgress } = await server.ssrLoadModule('/src/features/projects/WizardProgress.jsx'))
+  ;({ EnvironmentEditor } = await server.ssrLoadModule('/src/pages/EnvironmentPage.jsx'))
   ;({ RoleEditor } = await server.ssrLoadModule('/src/pages/RolePage.jsx'))
   ;({ DemoContext } = await server.ssrLoadModule('/src/features/projects/DemoContext.js'))
 })
@@ -87,5 +88,30 @@ test('기술 필드에는 미확인 설정 버튼 없이 자동 상태 배지를
   const html = render(h(DemoContext.Provider, { value: { dispatch() {} } }, h(ProfileEditor, { mode: 'demo', project, entry })))
   assert.match(html, /Database.*?사용자 입력/s)
   assert.match(html, /Deployment.*?확인되지 않음/s)
-  assert.equal((html.match(/>미확인으로 설정</g) || []).length, 2)
+  assert.doesNotMatch(html, />미확인으로 설정</)
+})
+
+
+test('Environment 시연 입력 UI와 서비스 미연동 안내를 분리한다', async () => {
+  const { emptyEnvironmentEntry } = await import('../src/features/environment/environmentModel.js')
+  const demo = render(h(EnvironmentEditor, { mode: 'demo', entry: emptyEnvironmentEntry, rolePath: '/demo/projects/a/role' }))
+  assert.match(demo, /PC 환경을 자동 검사하지 않습니다/)
+  assert.match(demo, /href="\/demo\/projects\/a\/role"/)
+  assert.match(demo, /개발환경 저장하고 추천 보기/)
+  const service = render(h(EnvironmentEditor, { mode: 'service', entry: emptyEnvironmentEntry, rolePath: '/projects/a/role' }))
+  assert.match(service, /인증된 세션과 개발환경 데이터 API 연결이 필요합니다/)
+  assert.doesNotMatch(service, /시연|Codex|<form/)
+})
+
+
+test('프로젝트 유형·도메인 배지는 직접 편집과 서버 문서 출처를 구분한다', () => {
+  const entry = createDemoProfile('이름')
+  entry.draft.project_type = '웹 서비스'
+  entry.draft.domain = '협업'
+  entry.editedFields = { project_type: true }
+  entry.sources = { domain: 'DOCUMENT' }
+  const html = render(h(DemoContext.Provider, { value: { dispatch() {} } }, h(ProfileEditor, { mode: 'demo', project, entry })))
+  assert.match(html, /프로젝트 유형.*?사용자 입력/s)
+  assert.match(html, /도메인.*?문서에서 확인/s)
+  assert.doesNotMatch(html, />미확인으로 설정</)
 })

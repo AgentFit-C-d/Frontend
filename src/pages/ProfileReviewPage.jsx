@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { useDemoProjects } from '../features/projects/DemoContext.js'
 import { getVisibleProjects } from '../features/projects/projectModel.js'
-import { scalarFields, listFields, validateProfile, getTechnicalFieldLabel } from '../features/profile/profileModel.js'
+import { scalarFields, listFields, validateProfile, getTechnicalFieldLabel, automaticScalarFields } from '../features/profile/profileModel.js'
 import WizardProgress from '../features/projects/WizardProgress.jsx'
 import PageHeader from '../components/layout/PageHeader.jsx'
 import { Badge, Button, Card, FormField } from '../components/ui/UI.jsx'
@@ -48,9 +48,8 @@ export function ProfileEditor({ project, entry, mode }) {
   function scalar(key) {
     const label = scalarFields.find(([field]) => field === key)[1]
     const value = entry.draft[key]
-    return <FormField key={key} id={`profile-${key}`} label={<>{label}{key !== 'project_name' && <span className={styles.optional}>선택</span>} <Badge>{['database', 'deployment'].includes(key) ? getTechnicalFieldLabel(entry, key) : value === null ? '확인되지 않음' : key === 'project_name' && entry.nameOrigin === 'project' ? '프로젝트 생성 시 입력' : copy.valueLabel}</Badge></>} required={key === 'project_name'} error={errors[key]}>
+    return <FormField key={key} id={`profile-${key}`} label={<>{label}{key !== 'project_name' && <span className={styles.optional}>선택</span>} <Badge>{automaticScalarFields.includes(key) ? getTechnicalFieldLabel(entry, key) : value === null ? '확인되지 않음' : key === 'project_name' && entry.nameOrigin === 'project' ? '프로젝트 생성 시 입력' : copy.valueLabel}</Badge></>} required={key === 'project_name'} error={errors[key]}>
       <input id={`profile-${key}`} className={styles.input} value={value ?? ''} required={key === 'project_name'} placeholder="확인되지 않음" aria-invalid={!!errors[key]} aria-describedby={errors[key] ? `profile-${key}-error` : undefined} onChange={event => edit('scalar', key, { value: event.target.value })} />
-      {!['project_name', 'database', 'deployment'].includes(key) && <Button onClick={() => edit('unknown', key)}>미확인으로 설정</Button>}
     </FormField>
   }
   function list(key) {
