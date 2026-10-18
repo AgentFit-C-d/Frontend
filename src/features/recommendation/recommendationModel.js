@@ -1,3 +1,4 @@
+import { environmentClient } from '../environment/clientDefinition.js'
 import { canEnterDemoEnvironment, validateEnvironment } from '../environment/environmentModel.js'
 import { capabilityOptions, necessityOptions, previewStates } from './recommendationDemoFixture.js'
 
@@ -7,7 +8,7 @@ export function createRecommendationPreview() {
   return { source: 'demo-ui', visible: false, status: 'NEEDS_INFORMATION', necessities: Object.fromEntries(capabilityOptions.map(([key]) => [key, 'UNDETERMINED'])) }
 }
 export function canEnterDemoRecommendation(profile, role, environment) {
-  return canEnterDemoEnvironment(profile, role) && !!environment && environment.source === 'demo-user' && environment.confirmed === true && !Object.keys(validateEnvironment(environment.draft)).length
+  return canEnterDemoEnvironment(profile, role) && !!environment && environment.source === 'demo-user' && environment.clientId === environmentClient.id && environment.confirmed === true && !Object.keys(validateEnvironment(environment.draft)).length
 }
 export function editRecommendationPreview(entry, action) {
   if (entry.source !== 'demo-ui') return entry

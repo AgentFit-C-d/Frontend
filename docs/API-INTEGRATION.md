@@ -72,8 +72,8 @@
 - 현재 설정 상태는 UNKNOWN/USER_SAYS_EMPTY/HAS_EXISTING. 실행 환경과 설치 구성요소는
   UNKNOWN(null)과 KNOWN(빈 배열 또는 이름·버전 행)을 구분한다. 정보 상태 전환 시 행 초안은 보존하고,
   확인 value에는 UNKNOWN이면 null, KNOWN이면 [] 또는 실제 행을 넣는다.
-- AI Client는 시각 시안의 읽기 전용 Codex 표시다. 설치 여부나 사용자 환경 값으로 자동 저장하지 않는다.
-  팀 확정 MVP는 Claude Code 우선, Codex 후속이다. 현재 Codex UI는 디자인 잔존 항목이며 아래 전환 분석에 따라 수정이 필요하다. 다른 Client 선택지는 추가하지 않았다.
+- AI Client는 확정 MVP인 Claude Code의 읽기 전용 표시다. 설치 여부를 탐지하거나 인증을 확인하지 않는다.
+  Codex는 후속 지원이며 선택지를 추가하지 않았다. 아래 구현 기록과 전환 영향 분석을 참고한다.
 - 외부 서비스 준비 상태는 서비스명 + UNKNOWN/READY/NOT_READY로 입력한다.
   실제 로그인 상태나 토큰이 아니며 사용자 선언이다. Secret·인증 토큰 입력을 요구하지 않는다.
 - 시안과 DOCX의 30행·200 코드포인트를 적용했다. 전부 미입력은 유효하다.
@@ -206,3 +206,38 @@ Codex 후속 지원을 위해 향후 데이터에 Client 식별자·지원 버�
 권한 정보 펼침 간격은 12px, 닫을 때 정보 박스를 제거한다. 390px에서 scrollWidth=390,
 하단 버튼은 좌우 18px 안에 있고 높이 49px로 정상 표시된다.
 실제 추천·권한 승인이 아닌 시연 설명은 카드/상단 공통 모드 표시/하단 안내로 유지된다.
+
+
+## Environment Claude Code MVP 대응 구현
+
+- 기준: 최종 HTML/DOCX의 Codex 표시와 PRD의 Claude Code 중심 정책을 대조했다.
+  Client 이름·버전 라벨·설정 대상 설명·지원 안내만 정책에 맞게 변경했다.
+  06 카드 구조·진행 표시·OS/실행 환경/설치 구성요소/외부 인증 준비 상태·버튼·CSS는 유지한다.
+- `clientDefinition.js`에 현재 MVP 식별자와 Client별 표시 문구를 분리했다.
+  `CLAUDE_CODE`는 UI 내부 식별자이며 서버 enum을 확정한 것이 아니다.
+  `clientVersion`은 사용자가 알고 있는 버전 문자열로 기존 선택 입력·200 코드포인트 검증을 유지한다.
+  버전 자동 조회·지원 범위 판정·설치 확인·설정 내용 수집은 없다.
+- `configurationKnowledge`의 UNKNOWN/USER_SAYS_EMPTY/HAS_EXISTING는 사용자가 알고 있는
+  **Claude Code 설정 존재 여부**다. 특정 JSON 파일·권한 모드·모든 설정 범위의 실효 상태에 매핑하지 않는다.
+  [공식 설정 문서](https://code.claude.com/docs/en/settings)는 사용자/프로젝트/로컬/관리 범위와 우선순위를 구분하므로
+  ‘설정 있음’만으로 실제 적용·상위 정책·도구 권한을 판정할 수 없다.
+  [공식 설치 문서](https://code.claude.com/docs/en/setup)의 설치 지원과 AgentFit 검증 지원 범위도 동일시하지 않는다.
+- 신규 시연 entry와 마지막 확인 value에 Client 식별자를 함께 기록한다. 서버 데이터는 여전히 별도이며
+  service 모드 입력 UI는 인증·API 미연동 안내로 차단한다. null/[]/목록 의미는 변경하지 않는다.
+- 구버전 메모리 entry에는 Client 식별자가 없었다. 기존 Codex 버전/설정 선언을 `legacyClientInput`에
+  별도 보존하고 Claude Code 초안은 빈 버전/UNKNOWN으로 시작한다. OS·공통 목록·초안은 그대로다.
+  마지막 유효 value는 확인 전 덮어쓰지 않고 confirmed를 해제한다. Claude 값을 재확인해야 추천 시연으로 이동한다.
+  이 처리는 구버전 demo 메모리 전용이며 서버 데이터 마이그레이션·영구 저장이 아니다.
+  명시적인 다른 Client 식별자는 자동 변환하지 않고 입력 화면을 차단한다.
+- Codex 후속 지원은 정의 파일의 표시 문구와 별도 Client 입력/계약을 확장해 연결한다.
+  현재 Client 전환 selector·설정 파서·권한 어댑터를 만들지 않는다.
+
+### 남은 계약·디자인 결정
+
+1. Claude Code의 AgentFit 지원 OS/버전, 서버 Client 식별자, 버전 형식 및 저장 계약.
+2. 설정 존재 여부의 범위와 출처, 사용자/프로젝트/관리 설정 확인 방식, Secret 정제·충돌 검증.
+3. Selection(08)은 여전히 추상 시연이다. 실제 manifest 권한·승인 정책을 Claude 규칙/모드와
+   단순 매핑하지 않는다. Catalog/추천 snapshot/호환성/도구별 권한 계약과 디자인 확정 필요.
+4. Preview(09)·다운로드(10)는 미구현이다. Claude 전용 파일 종류·경로·범위·병합/Diff·기준 버전·
+   최종 승인 fingerprint·산출물 일치·적용/인증/확인 안내를 합의해야 한다. 이번에 파일 생성·적용은 하지 않았다.
+5. 앞의 Client 전환 표에서 Environment 수정은 이번에 반영됐고, 07~10의 실제 API/권한/산출물 항목은 후속 과제다.
