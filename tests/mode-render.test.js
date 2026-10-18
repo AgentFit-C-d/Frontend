@@ -7,12 +7,13 @@ import { createServer } from 'vite'
 import { createDemoProfile } from '../src/features/profile/profileModel.js'
 import { demoReducer, initialDemoState } from '../src/features/projects/projectModel.js'
 
-let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, RecommendationScreen, WizardProgress, DemoContext
+let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, RecommendationScreen, SelectionScreen, WizardProgress, DemoContext
 before(async () => {
   server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
   ;({ AnalysisScreen } = await server.ssrLoadModule('/src/pages/AnalysisPage.jsx'))
   ;({ ProfileEditor } = await server.ssrLoadModule('/src/pages/ProfileReviewPage.jsx'))
   ;({ default: WizardProgress } = await server.ssrLoadModule('/src/features/projects/WizardProgress.jsx'))
+  ;({ SelectionScreen } = await server.ssrLoadModule('/src/pages/SelectionPage.jsx'))
   ;({ RecommendationScreen } = await server.ssrLoadModule('/src/pages/RecommendationPage.jsx'))
   ;({ EnvironmentEditor } = await server.ssrLoadModule('/src/pages/EnvironmentPage.jsx'))
   ;({ RoleEditor } = await server.ssrLoadModule('/src/pages/RolePage.jsx'))
@@ -118,14 +119,14 @@ test('프로젝트 유형·도메인 배지는 직접 편집과 서버 문서 �
 })
 
 
-test('추천 기본 상태·명시적 시안·서비스 오류를 분리하고 08단계로 이동하지 않는다', async () => {
+test('추천 기본 상태·명시적 시안·서비스 오류를 분리하고 실제 결과 흐름을 가장하지 않는다', async () => {
   const { createRecommendationPreview } = await import('../src/features/recommendation/recommendationModel.js')
   const preview = createRecommendationPreview()
   const props = { mode: 'demo', preview, environmentPath: '/demo/projects/a/environment' }
   const initial = render(h(RecommendationScreen, props))
   assert.match(initial, /추천 미실행/)
   assert.equal((initial.match(/disabled=""/g) || []).length, 9)
-  assert.match(initial, /08\/10/)
+  assert.match(initial, /시연용 도구·권한 화면 미리보기/)
   assert.match(initial, /href="\/demo\/projects\/a\/environment"/)
   assert.doesNotMatch(initial, /href="[^"]*selection|Codex|Claude/)
   const sample = render(h(RecommendationScreen, { ...props, preview: { ...preview, visible: true, status: 'RECOMMENDED' } }))
@@ -135,4 +136,25 @@ test('추천 기본 상태·명시적 시안·서비스 오류를 분리하고 0
   const service = render(h(RecommendationScreen, { ...props, mode: 'service' }))
   assert.match(service, /추천 서비스를 이용할 수 없어요/)
   assert.doesNotMatch(service, /시연|fixture|미리보기|문서 참조|<select/)
+})
+
+
+test('Selection 기본은 미조회이며 예시는 명시적으로 열고 서비스는 차단한다', async () => {
+  const { createSelectionPreview } = await import('../src/features/selection/selectionModel.js')
+  const preview = createSelectionPreview()
+  const props = { mode: 'demo', preview, recommendationPath: '/demo/projects/a/recommendation' }
+  const initial = render(h(SelectionScreen, props))
+  assert.match(initial, /선택할 수 있는 검증된 도구가 없습니다/)
+  assert.doesNotMatch(initial, /추천 도구 미조회|>시연 화면</)
+  assert.doesNotMatch(initial, /필수 카드 UI 예시/)
+  assert.match(initial, /disabled=""/)
+  assert.match(initial, /09\/10/)
+  assert.match(initial, /href="\/demo\/projects\/a\/recommendation"/)
+  const example = render(h(SelectionScreen, { ...props, preview: { ...preview, visible: true } }))
+  assert.match(example, /필수 카드 UI 예시/)
+  assert.match(example, /선택 카드 UI 예시/)
+  assert.match(example, /aria-disabled="true"/)
+  const service = render(h(SelectionScreen, { ...props, mode: 'service' }))
+  assert.match(service, /검증된 추천·Catalog 데이터가 필요합니다/)
+  assert.doesNotMatch(service, /시연|예시|<select|미리보기/)
 })

@@ -1,9 +1,12 @@
+import { limitProjectName, validateProjectName } from './projectName.js'
+export { limitProjectName, validateProjectName } from './projectName.js'
+import { createSelectionPreview, editSelectionPreview } from '../selection/selectionModel.js'
 import { canEnterDemoRecommendation, createRecommendationPreview, editRecommendationPreview } from '../recommendation/recommendationModel.js'
 import { canEnterDemoEnvironment, editEnvironment, emptyEnvironmentEntry } from '../environment/environmentModel.js'
 import { canEnterDemoRole, editRole, emptyRoleEntry } from '../role/roleModel.js'
 import { createDemoProfile, editDemoProfile } from '../profile/profileModel.js'
 // This store contains demo data only. Server data belongs in a separate API-backed store.
-export const initialDemoState = { active: false, projects: [], draftName: '', examplesVisible: false, selectedProjectId: null, planningDrafts: {}, demoProfiles: {}, roleDrafts: {}, environmentDrafts: {}, recommendationPreviews: {} }
+export const initialDemoState = { active: false, projects: [], draftName: '', examplesVisible: false, exampleNames: {}, selectedProjectId: null, planningDrafts: {}, demoProfiles: {}, roleDrafts: {}, environmentDrafts: {}, recommendationPreviews: {}, selectionPreviews: {} }
 
 const exampleProjects = [
   { id: 'demo-example-workout', name: '운동 기록 웹 서비스', source: 'demo' },
@@ -11,7 +14,7 @@ const exampleProjects = [
 ]
 
 export function getVisibleProjects(state) {
-  return state.examplesVisible ? [...state.projects, ...exampleProjects] : state.projects
+  return state.examplesVisible ? [...state.projects, ...exampleProjects.map(project => ({ ...project, name: state.exampleNames?.[project.id] ?? project.name }))] : state.projects
 }
 
 export function getPlanningDraft(state, id) {
@@ -23,16 +26,17 @@ function updatePlanningDraft(state, id, patch) {
   return { ...state, planningDrafts: { ...state.planningDrafts, [id]: { ...getPlanningDraft(state, id), ...patch } } }
 }
 
-export const limitProjectName = (value) => Array.from(value).slice(0, 200).join('')
-
-export function validateProjectName(value) {
-  if (!value.trim()) return '프로젝트 이름을 입력해주세요.'
-  if (Array.from(value).length > 200) return '프로젝트 이름은 최대 200자까지 입력할 수 있어요.'
-  return ''
-}
-
 export function demoReducer(state, action) {
   switch (action.type) {
+    case 'selection-enter':
+    case 'selection-preview': {
+      if (!state.active || !getVisibleProjects(state).some(project => project.id === action.id) || !canEnterDemoRecommendation(state.demoProfiles[action.id], state.roleDrafts[action.id], state.environmentDrafts[action.id])) return state
+      const previous = state.selectionPreviews[action.id]
+      if (action.type === 'selection-enter') return previous ? state : { ...state, selectionPreviews: { ...state.selectionPreviews, [action.id]: createSelectionPreview() } }
+      if (!previous) return state
+      const entry = editSelectionPreview(previous, action)
+      return entry === previous ? state : { ...state, selectionPreviews: { ...state.selectionPreviews, [action.id]: entry } }
+    }
     case 'recommendation-preview': {
       if (!state.active || !getVisibleProjects(state).some(project => project.id === action.id) || !canEnterDemoRecommendation(state.demoProfiles[action.id], state.roleDrafts[action.id], state.environmentDrafts[action.id])) return state
       const previous = state.recommendationPreviews[action.id] || createRecommendationPreview()
@@ -60,12 +64,17 @@ export function demoReducer(state, action) {
       const existing = state.demoProfiles[action.id]
       if (action.type === 'profile-load-example') {
         if (!existing || action.confirmed !== true) return state
-        return { ...state, demoProfiles: { ...state.demoProfiles, [action.id]: createDemoProfile('', true) } }
+        return { ...state, demoProfiles: { ...state.demoProfiles, [action.id]: createDemoProfile(getVisibleProjects(state).find(project => project.id === action.id).name, true) } }
       }
       if (action.type === 'profile-preview' && existing) return state
       if (action.type === 'profile-edit' && !existing) return state
       const entry = action.type === 'profile-preview' ? createDemoProfile(getVisibleProjects(state).find(project => project.id === action.id).name) : editDemoProfile(existing, action)
-      return { ...state, demoProfiles: { ...state.demoProfiles, [action.id]: entry } }
+      const confirmedName = action.type === 'profile-edit' && action.edit === 'confirm' && entry !== existing && entry.confirmed ? entry.profile.project_name : null
+      return { ...state,
+        projects: confirmedName === null ? state.projects : state.projects.map(project => project.id === action.id ? { ...project, name: confirmedName } : project),
+        exampleNames: confirmedName !== null && exampleProjects.some(project => project.id === action.id) ? { ...state.exampleNames, [action.id]: confirmedName } : state.exampleNames,
+        demoProfiles: { ...state.demoProfiles, [action.id]: entry },
+      }
     }
     case 'planning-tab':
       return ['file', 'text'].includes(action.tab) ? updatePlanningDraft(state, action.id, { tab: action.tab }) : state

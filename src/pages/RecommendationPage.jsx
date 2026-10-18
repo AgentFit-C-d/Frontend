@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useParams } from 'react-router'
+import { Navigate, useNavigate, useParams } from 'react-router'
 import { useDemoProjects } from '../features/projects/DemoContext.js'
 import { getVisibleProjects } from '../features/projects/projectModel.js'
 import { canEnterDemoRecommendation, createRecommendationPreview, describeRecommendationResult, unexecutedRecommendation } from '../features/recommendation/recommendationModel.js'
@@ -11,15 +11,16 @@ import styles from './RecommendationPage.module.css'
 
 export default function RecommendationPage() {
   const { demoId } = useParams()
+  const navigate = useNavigate()
   const { state, dispatch } = useDemoProjects()
   const project = getVisibleProjects(state).find(item => item.id === demoId)
   if (!project) return <Card padded><h1>프로젝트를 찾을 수 없어요</h1><p>현재 시연 세션의 목록에서 프로젝트를 다시 선택해주세요.</p><Button to="/demo/projects">내 프로젝트로</Button></Card>
   const path = `/demo/projects/${encodeURIComponent(project.id)}`
   if (!canEnterDemoRecommendation(state.demoProfiles[project.id], state.roleDrafts[project.id], state.environmentDrafts[project.id])) return <Navigate to={`${path}/environment`} replace />
-  return <RecommendationScreen key={project.id} mode="demo" preview={state.recommendationPreviews[project.id] || createRecommendationPreview()} environmentPath={`${path}/environment`} onPreview={action => dispatch({ ...action, type: 'recommendation-preview', id: project.id })} />
+  return <RecommendationScreen key={project.id} mode="demo" preview={state.recommendationPreviews[project.id] || createRecommendationPreview()} environmentPath={`${path}/environment`} onSelectionPreview={() => { dispatch({ type: 'selection-enter', id: project.id }); navigate(`${path}/selection`) }} onPreview={action => dispatch({ ...action, type: 'recommendation-preview', id: project.id })} />
 }
 
-export function RecommendationScreen({ mode, preview, environmentPath, onPreview }) {
+export function RecommendationScreen({ mode, preview, environmentPath, onPreview, onSelectionPreview }) {
   const [notice, setNotice] = useState('')
   if (mode !== 'demo') return <Card padded><h1>{describeRecommendationResult({ status: 'UNAVAILABLE' })}</h1><p>인증된 세션과 추천 API 연결이 필요합니다.</p></Card>
   if (preview.source !== 'demo-ui') return <Card padded><h1>추천 상태를 확인할 수 없어요</h1></Card>
@@ -40,8 +41,9 @@ export function RecommendationScreen({ mode, preview, environmentPath, onPreview
         </Card>
       </div>
     </div>
-    <p id="recommendation-next-hint" className={styles.notice}>실제 추천 결과가 없으며, 도구·권한 선택(08/10)은 아직 제공하지 않습니다.</p>
+    <p id="recommendation-next-hint" className={styles.notice}>실제 추천 결과가 없으며, 실제 도구 선택은 사용할 수 없습니다. 별도 시연 경로에서 화면만 확인할 수 있습니다.</p>
     <p className={styles.notice} role="status">{notice}</p>
-    <div className={styles.actions}><Button to={environmentPath}>← 개발환경 수정</Button><Button variant="primary" large aria-describedby="recommendation-next-hint" onClick={() => setNotice('실제 추천 결과가 없어 추천을 확정하지 않습니다. 도구·권한 선택(08/10) 화면은 아직 구현되지 않았으며 현재 입력과 시연 선택은 유지됩니다.')}>도구·권한 선택 →</Button></div>
+    <div className={styles.preview}><Button variant="soft" onClick={onSelectionPreview}>시연용 도구·권한 화면 미리보기</Button></div>
+    <div className={styles.actions}><Button to={environmentPath}>← 개발환경 수정</Button><Button variant="primary" large aria-describedby="recommendation-next-hint" onClick={() => setNotice('실제 추천 결과가 없어 추천을 확정하지 않습니다. Catalog·추천 API 미연동 상태입니다. 별도 시연 진입을 이용해주세요.')}>도구·권한 선택 →</Button></div>
   </>
 }
