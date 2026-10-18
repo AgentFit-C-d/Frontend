@@ -141,7 +141,7 @@ Role·Environment는 실제 서비스 기능 자체를 미연동 안내로 차�
   필수 예시 카드 + DENY 경고는 가상 조합 검증일 뿐 실제 Capability/manifest 판정이 아니다.
 - 실제 서비스 모드는 인증·검증된 추천/Catalog 미연동 안내로 차단하고 시연 데이터를 표시하지 않는다.
   Secret 입력, 설치, 토큰 저장, 실제 승인, 설정 파일 생성은 없다.
-- 09단계는 미구현이다. 다음 버튼은 시연 조합 검증 및 미구현 안내만 하고 이동하지 않는다.
+- 실제 Preview는 미준비다. 기본 다음 버튼은 시연 조합 검증만 하고, 별도의 시연용 설정 확인·승인 화면 미리보기로만 09단계에 진입한다.
 - 백엔드 합의 필요: Catalog 도구 ID/버전·출처, 필수/선택 여부, 추천 snapshot/버전, Client 지원 조합,
   도구별 manifest 권한 범위·정책 기본값·거부 시 처리, 선택 저장/조회 계약·소유권·동시 수정 정책.
   실제 계약 없이 경로·응답이나 호환 규칙을 추가하지 않았다. 원본에도 도구 상세 화면은 정의되어 있지 않아 만들지 않았다.
@@ -241,3 +241,42 @@ Codex 후속 지원을 위해 향후 데이터에 Client 식별자·지원 버�
 4. Preview(09)·다운로드(10)는 미구현이다. Claude 전용 파일 종류·경로·범위·병합/Diff·기준 버전·
    최종 승인 fingerprint·산출물 일치·적용/인증/확인 안내를 합의해야 한다. 이번에 파일 생성·적용은 하지 않았다.
 5. 앞의 Client 전환 표에서 Environment 수정은 이번에 반영됐고, 07~10의 실제 API/권한/산출물 항목은 후속 과제다.
+
+
+## Preview 09/10 (시연 확인과 실제 승인 분리)
+
+- HTML/DOCX의 선택 요약·파일 Preview·최종 확인·체크 전 CTA 비활성을 재현했다.
+  `/demo/projects/:demoId/preview`는 유효한 선행 입력과 Selection 시연 entry 및 명시적 preview-enter가 있어야 한다.
+  없는 프로젝트는 기존 목록 안내, 미진입·선행 입력 오류는 Selection 및 기존 선행 단계 정책으로 처리한다.
+- 실제 상태 모델은 NOT_PREPARED, files:null, approval:null, download:null이다. API 요청/응답은 없다.
+  null은 미준비/미조회이며 조회된 빈 파일 목록 []와 동일하지 않다. UI 예시가 실제 files를 채우지 않는다.
+  service 렌더링은 인증·검증된 Preview/승인 API 미연동 안내로 차단하며 실제 서비스 라우트는 아직 없다.
+- `previewDrafts[id]`는 source:demo-ui, visible, acknowledged, selectionSignature만 보관한다.
+  acknowledged는 화면 확인 체크일 뿐 승인 상태가 아니다. 서버 승인 ID·산출물·다운로드 URL은 생성하지 않는다.
+- 기본은 실제 검증 도구 없음·권한 미확인·파일 경로/변경 유형/기존 파일 상태 미확인이다.
+  명시적으로 예시를 열면 Selection의 추상 카드/권한 조작값 요약과 별도 fixture의 설명문만 표시한다.
+  실제 Claude Code JSON·파일 경로·Diff·권한 규칙을 예시로 발명하지 않았다.
+- 예시 열기/닫기는 체크를 해제한다. 이전 단계·뒤로/앞으로·동일 내용 재진입은 체크를 보존한다.
+  Selection의 selectedIds/permission 변경 시 체크를 해제하고 현재 시연 내용으로 재확인을 요구한다.
+  정보 펼침/닫기만으로는 내용 확인을 해제하지 않는다. 이 signature는 UI 비교값이며 서버 승인 fingerprint가 아니다.
+  실제 파일 내용 변경은 현재 발생하지 않는다. 향후 서버 Preview 버전·내용·권한·Client·입력 snapshot 변경 시
+  서버 근거로 승인을 무효화하는 계약이 필요하다.
+- 시연 next는 체크 후 활성화되지만 10단계 미구현 안내만 표시하고 이동하지 않는다.
+  체크 및 시연 흐름은 실제 권한 승인/설정 생성·병합/설치/다운로드/서버 저장을 의미하지 않는다.
+  원본은 체크 후 완료 화면으로 이동하므로 이 부분은 승인 범위에 맞춘 의도적 차이다.
+- 기존 Selection DENY+필수 예시 경고는 UI 조합 확인용이다. 명시적 09 미리보기는 이를 실제 제약 통과로
+  취급하지 않으며 파일의 유효성/충돌/도구 호환성/필수 권한을 정상 판정하지 않는다.
+
+### 실제 연동 전 합의할 계약
+
+phase1 OpenAPI에는 Preview/승인/Config/다운로드 계약이 없다. 새 endpoint나 DTO는 만들지 않았다.
+Claude Code의 사용자/프로젝트/로컬/관리 설정 범위는 [공식 설정 문서](https://code.claude.com/docs/en/settings),
+규칙·모드·관리 정책은 [공식 권한 문서](https://code.claude.com/docs/en/permissions)를 참고해야 하며
+Codex 설정 형식이나 현재 시연 3값과 동일하게 취급하지 않는다.
+
+- 대상 Client/버전·지원 manifest·Catalog/추천/Selection snapshot과 Preview의 연결.
+- 생성/조회 상태·오류·충돌·미확인 표현, 파일 목록 null/[] 의미, 지원 파일 종류/경로/범위.
+- 기존 파일 제출·Secret 정제·보관 정책, 신규안 vs 실제 CREATE/UPDATE 판정, 병합/Diff·검증 주체.
+- 승인 주체·소유권·기준 버전/내용 fingerprint·유효 기간·중복 요청·409·취소/재승인·감사 기록.
+- Preview와 승인·최종 산출물 일치, 변경 시 승인 무효화, 다운로드 권한·만료·실패/재시도.
+- 10단계 적용/인증/검증 안내와 사용자 보고·실제 검사 구분. 다운로드만으로 설치 완료 표시 금지.

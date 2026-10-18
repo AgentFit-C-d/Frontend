@@ -7,12 +7,13 @@ import { createServer } from 'vite'
 import { createDemoProfile } from '../src/features/profile/profileModel.js'
 import { demoReducer, initialDemoState } from '../src/features/projects/projectModel.js'
 
-let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, RecommendationScreen, SelectionScreen, WizardProgress, DemoContext
+let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, RecommendationScreen, SelectionScreen, PreviewScreen, WizardProgress, DemoContext
 before(async () => {
   server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
   ;({ AnalysisScreen } = await server.ssrLoadModule('/src/pages/AnalysisPage.jsx'))
   ;({ ProfileEditor } = await server.ssrLoadModule('/src/pages/ProfileReviewPage.jsx'))
   ;({ default: WizardProgress } = await server.ssrLoadModule('/src/features/projects/WizardProgress.jsx'))
+  ;({ PreviewScreen } = await server.ssrLoadModule('/src/pages/PreviewPage.jsx'))
   ;({ SelectionScreen } = await server.ssrLoadModule('/src/pages/SelectionPage.jsx'))
   ;({ RecommendationScreen } = await server.ssrLoadModule('/src/pages/RecommendationPage.jsx'))
   ;({ EnvironmentEditor } = await server.ssrLoadModule('/src/pages/EnvironmentPage.jsx'))
@@ -152,7 +153,8 @@ test('Selection 기본은 미조회이며 예시는 명시적으로 열고 서�
   assert.doesNotMatch(initial, /추천 도구 미조회|>시연 화면</)
   assert.doesNotMatch(initial, /필수 카드 UI 예시/)
   assert.match(initial, /disabled=""/)
-  assert.match(initial, /09\/10/)
+  assert.match(initial, /시연용 설정 확인·승인 화면 미리보기/)
+  assert.match(initial, /실제 설정 Preview와 승인은 제공하지 않습니다/)
   assert.match(initial, /href="\/demo\/projects\/a\/recommendation"/)
   const example = render(h(SelectionScreen, { ...props, preview: { ...preview, visible: true } }))
   assert.match(example, /필수 카드 UI 예시/)
@@ -161,4 +163,28 @@ test('Selection 기본은 미조회이며 예시는 명시적으로 열고 서�
   const service = render(h(SelectionScreen, { ...props, mode: 'service' }))
   assert.match(service, /검증된 추천·Catalog 데이터가 필요합니다/)
   assert.doesNotMatch(service, /시연|예시|<select|미리보기/)
+})
+
+
+test('Preview 기본 미준비·명시적 예시·체크와 서비스 접근 차단을 렌더링한다', async () => {
+  const { createPreviewDraft } = await import('../src/features/preview/previewModel.js')
+  const { createSelectionPreview } = await import('../src/features/selection/selectionModel.js')
+  const selection = createSelectionPreview()
+  const entry = createPreviewDraft(selection)
+  const props = { mode: 'demo', entry, selection, selectionPath: '/demo/projects/a/selection' }
+  const initial = render(h(PreviewScreen, props))
+  assert.match(initial, /실제 Preview 미준비/)
+  assert.match(initial, /파일 경로: <b>확인되지 않음/)
+  assert.match(initial, /type="checkbox" disabled=""/)
+  assert.match(initial, /href="\/demo\/projects\/a\/selection"/)
+  assert.doesNotMatch(initial, /설정 영역 UI 예시|href="[^"]*complete|다운로드 가능/)
+  const example = render(h(PreviewScreen, { ...props, entry: { ...entry, visible: true, acknowledged: true } }))
+  assert.match(example, /설정 영역 UI 예시/)
+  assert.match(example, /type="checkbox" checked=""/)
+  assert.match(example, /시연 체크는 실제 승인이 아닙니다/)
+  assert.match(example, /10\/10/)
+  assert.doesNotMatch(example, /href="[^"]*complete|승인 완료|download=/)
+  const service = render(h(PreviewScreen, { ...props, mode: 'service' }))
+  assert.match(service, /인증된 세션과 서버에서 검증한 설정 Preview·승인 API/)
+  assert.doesNotMatch(service, /시연|예시|type="checkbox"/)
 })

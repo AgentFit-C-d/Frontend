@@ -10,6 +10,7 @@ import ProfileReviewPage from '../pages/ProfileReviewPage.jsx'
 import RolePage from '../pages/RolePage.jsx'
 import EnvironmentPage from '../pages/EnvironmentPage.jsx'
 import RecommendationPage from '../pages/RecommendationPage.jsx'
+import PreviewPage from '../pages/PreviewPage.jsx'
 import SelectionPage from '../pages/SelectionPage.jsx'
 
 export const router = createBrowserRouter([
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
           { path: 'projects/:demoId/environment', element: <EnvironmentPage /> },
           { path: 'projects/:demoId/recommendation', element: <RecommendationPage /> },
           { path: 'projects/:demoId/selection', element: <SelectionPage /> },
+          { path: 'projects/:demoId/preview', element: <PreviewPage /> },
         ],
       },
       { path: '*', element: <Navigate to="/" replace /> },

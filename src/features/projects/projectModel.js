@@ -1,3 +1,5 @@
+import { createPreviewDraft, editPreviewDraft, syncPreviewSelection } from '../preview/previewModel.js'
+import { canEnterDemoSelection } from '../selection/selectionModel.js'
 import { limitProjectName, validateProjectName } from './projectName.js'
 export { limitProjectName, validateProjectName } from './projectName.js'
 import { createSelectionPreview, editSelectionPreview } from '../selection/selectionModel.js'
@@ -6,7 +8,7 @@ import { canEnterDemoEnvironment, editEnvironment, emptyEnvironmentEntry } from 
 import { canEnterDemoRole, editRole, emptyRoleEntry } from '../role/roleModel.js'
 import { createDemoProfile, editDemoProfile } from '../profile/profileModel.js'
 // This store contains demo data only. Server data belongs in a separate API-backed store.
-export const initialDemoState = { active: false, projects: [], draftName: '', examplesVisible: false, exampleNames: {}, selectedProjectId: null, planningDrafts: {}, demoProfiles: {}, roleDrafts: {}, environmentDrafts: {}, recommendationPreviews: {}, selectionPreviews: {} }
+export const initialDemoState = { active: false, projects: [], draftName: '', examplesVisible: false, exampleNames: {}, selectedProjectId: null, planningDrafts: {}, demoProfiles: {}, roleDrafts: {}, environmentDrafts: {}, recommendationPreviews: {}, selectionPreviews: {}, previewDrafts: {} }
 
 const exampleProjects = [
   { id: 'demo-example-workout', name: '운동 기록 웹 서비스', source: 'demo' },
@@ -28,6 +30,15 @@ function updatePlanningDraft(state, id, patch) {
 
 export function demoReducer(state, action) {
   switch (action.type) {
+    case 'preview-enter':
+    case 'preview-edit': {
+      if (!state.active || !getVisibleProjects(state).some(project => project.id === action.id) || !canEnterDemoSelection(state, action.id)) return state
+      const previous = state.previewDrafts?.[action.id]
+      if (action.type === 'preview-edit' && !previous) return state
+      const synced = previous ? syncPreviewSelection(previous, state.selectionPreviews[action.id]) : createPreviewDraft(state.selectionPreviews[action.id])
+      const entry = action.type === 'preview-enter' ? synced : editPreviewDraft(synced, action)
+      return entry === previous ? state : { ...state, previewDrafts: { ...state.previewDrafts, [action.id]: entry } }
+    }
     case 'selection-enter':
     case 'selection-preview': {
       if (!state.active || !getVisibleProjects(state).some(project => project.id === action.id) || !canEnterDemoRecommendation(state.demoProfiles[action.id], state.roleDrafts[action.id], state.environmentDrafts[action.id])) return state
@@ -35,7 +46,7 @@ export function demoReducer(state, action) {
       if (action.type === 'selection-enter') return previous ? state : { ...state, selectionPreviews: { ...state.selectionPreviews, [action.id]: createSelectionPreview() } }
       if (!previous) return state
       const entry = editSelectionPreview(previous, action)
-      return entry === previous ? state : { ...state, selectionPreviews: { ...state.selectionPreviews, [action.id]: entry } }
+      return entry === previous ? state : { ...state, selectionPreviews: { ...state.selectionPreviews, [action.id]: entry }, previewDrafts: state.previewDrafts?.[action.id] ? { ...state.previewDrafts, [action.id]: syncPreviewSelection(state.previewDrafts?.[action.id], entry) } : state.previewDrafts }
     }
     case 'recommendation-preview': {
       if (!state.active || !getVisibleProjects(state).some(project => project.id === action.id) || !canEnterDemoRecommendation(state.demoProfiles[action.id], state.roleDrafts[action.id], state.environmentDrafts[action.id])) return state
