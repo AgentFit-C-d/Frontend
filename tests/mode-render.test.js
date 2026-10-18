@@ -2,17 +2,18 @@ import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createElement as h } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Routes, Route } from 'react-router'
 import { createServer } from 'vite'
 import { createDemoProfile } from '../src/features/profile/profileModel.js'
 import { demoReducer, initialDemoState } from '../src/features/projects/projectModel.js'
 
-let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, RecommendationScreen, SelectionScreen, PreviewScreen, WizardProgress, DemoContext
+let server, AnalysisScreen, ProfileEditor, RoleEditor, EnvironmentEditor, RecommendationScreen, SelectionScreen, PreviewScreen, CompleteScreen, CompletePage, WizardProgress, DemoContext
 before(async () => {
   server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
   ;({ AnalysisScreen } = await server.ssrLoadModule('/src/pages/AnalysisPage.jsx'))
   ;({ ProfileEditor } = await server.ssrLoadModule('/src/pages/ProfileReviewPage.jsx'))
   ;({ default: WizardProgress } = await server.ssrLoadModule('/src/features/projects/WizardProgress.jsx'))
+  ;({ CompleteScreen, default: CompletePage } = await server.ssrLoadModule('/src/pages/CompletePage.jsx'))
   ;({ PreviewScreen } = await server.ssrLoadModule('/src/pages/PreviewPage.jsx'))
   ;({ SelectionScreen } = await server.ssrLoadModule('/src/pages/SelectionPage.jsx'))
   ;({ RecommendationScreen } = await server.ssrLoadModule('/src/pages/RecommendationPage.jsx'))
@@ -187,4 +188,35 @@ test('Preview 기본 미준비·명시적 예시·체크와 서비스 접근 차
   const service = render(h(PreviewScreen, { ...props, mode: 'service' }))
   assert.match(service, /인증된 세션과 서버에서 검증한 설정 Preview·승인 API/)
   assert.doesNotMatch(service, /시연|예시|type="checkbox"/)
+})
+
+
+test('Complete는 다운로드 파일 없음과 시연 보고만 표시하며 서비스는 차단한다', async () => {
+  const { createCompleteDraft } = await import('../src/features/complete/completeModel.js')
+  const entry = createCompleteDraft('snapshot')
+  const props = { mode: 'demo', entry, previewPath: '/demo/projects/a/preview' }
+  const initial = render(h(CompleteScreen, props))
+  assert.match(initial, /미보고/)
+  assert.match(initial, /다운로드 연동 전/)
+  assert.match(initial, /사용자가 직접 Claude Code에 적용/)
+  assert.doesNotMatch(initial, /download=|blob:|data:|사용자가 직접 Codex/)
+  assert.match(initial, /href="\/demo\/projects\/a\/preview"/)
+  const failed = render(h(CompleteScreen, { ...props, entry: { ...entry, draft: { status: 'FAILED', reason: '' } } }))
+  for (const reason of ['실패 사유', '파일 복사 실패', '인증 필요', '의존성 누락', '알 수 없음']) assert.ok(failed.includes(reason))
+  const applied = render(h(CompleteScreen, { ...props, entry: { ...entry, report: { source: 'demo-user-report', status: 'APPLIED', reason: '', verification: 'NOT_RUN', selectionSignature: 'snapshot' } } }))
+  assert.match(applied, /적용 완료 \(시연 사용자 보고\)/)
+  assert.match(applied, /시스템 검증: NOT_RUN/)
+  const service = render(h(CompleteScreen, { ...props, mode: 'service' }))
+  assert.match(service, /인증된 세션과 서버의 승인·설정 산출물·다운로드 API/)
+  assert.doesNotMatch(service, /시연|APPLIED|FAILED|<select|사용자 보고 저장/)
+})
+
+
+test('없는 프로젝트의 Complete 직접 진입은 목록 안내로 안전하게 처리한다', () => {
+  const html = renderToStaticMarkup(h(MemoryRouter, { initialEntries: ['/demo/projects/missing/complete'] },
+    h(DemoContext.Provider, { value: { state: { ...initialDemoState, active: true }, dispatch() {} } },
+      h(Routes, null, h(Route, { path: '/demo/projects/:demoId/complete', element: h(CompletePage) })))))
+  assert.match(html, /프로젝트를 찾을 수 없어요/)
+  assert.match(html, /href="\/demo\/projects"/)
+  assert.doesNotMatch(html, /APPLIED|사용자 보고 저장/)
 })
